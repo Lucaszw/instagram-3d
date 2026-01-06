@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CreativeInstagram - 3D Instagram Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Title Screen -->
+    <div id="title-screen" class="screen active">
+      <div class="scanlines"></div>
+      <div class="title-content">
+        <div class="pixel-border title-box">
+          <h1 class="glitch" data-text="CreativeInstagram">CreativeInstagram</h1>
+          <p class="subtitle">3D Instagram Visualizer</p>
+        </div>
+        <div class="menu-options">
+          <button class="pixel-btn" id="start-btn">
+            <span class="btn-icon">▶</span> START GAME
+          </button>
+          <button class="pixel-btn" id="login-btn">
+            <span class="btn-icon">📱</span> LOGIN TO INSTAGRAM
+          </button>
+          <button class="pixel-btn secondary" id="settings-btn">
+            <span class="btn-icon">⚙</span> SETTINGS
+          </button>
+        </div>
+        <p class="hint">Press ENTER to start</p>
+      </div>
+      <div class="floating-icons">
+        <span class="float-icon" style="--delay: 0s; --x: 10%;">💬</span>
+        <span class="float-icon" style="--delay: 1s; --x: 25%;">❤️</span>
+        <span class="float-icon" style="--delay: 2s; --x: 40%;">📸</span>
+        <span class="float-icon" style="--delay: 3s; --x: 55%;">🎵</span>
+        <span class="float-icon" style="--delay: 4s; --x: 70%;">✨</span>
+        <span class="float-icon" style="--delay: 5s; --x: 85%;">🔥</span>
+      </div>
+    </div>
+
+    <!-- Instagram Browser Overlay -->
+    <div id="instagram-overlay" class="hidden">
+      <div class="browser-header pixel-border">
+        <div class="browser-title">
+          <span>📱</span> Instagram Browser
+        </div>
+        <div class="browser-controls">
+          <button class="pixel-btn small" id="ig-home" title="Home Feed">🏠</button>
+          <button class="pixel-btn small" id="ig-inbox" title="Messages">💬</button>
+          <button class="pixel-btn small" id="ig-explore" title="Explore">🔍</button>
+          <button class="pixel-btn small" id="ig-reels" title="Reels">🎬</button>
+          <button class="pixel-btn small" id="ig-notifications" title="Activity">❤️</button>
+          <button class="pixel-btn small secondary" id="ig-dump" title="Dump HTML">📥</button>
+          <button class="pixel-btn small" id="ig-scrape">✨ Scrape</button>
+          <button class="pixel-btn small" id="ig-auto">🤖 Auto</button>
+          <button class="pixel-btn small secondary" id="ig-restore">📂 Restore</button>
+          <button class="pixel-btn small" id="ig-play">🎮 Play</button>
+          <button class="close-btn" id="ig-close">✕</button>
+        </div>
+      </div>
+      <div id="browser-status" class="browser-status">
+        Log in to Instagram → Navigate around → Click "✨ Scrape" to collect data → Click "🎮 Play" to enter the world!
+      </div>
+      <!-- Restore Panel -->
+      <div id="restore-panel" class="restore-panel hidden">
+        <div class="debug-header">
+          <span>📂 Previous Scrapes</span>
+          <button class="close-btn small" id="close-restore">✕</button>
+        </div>
+        <div id="restore-content" class="restore-content"></div>
+      </div>
+      
+      <!-- Debug Panel -->
+      <div id="debug-panel" class="debug-panel hidden">
+        <div class="debug-header">
+          <span>🔍 Scraped Data</span>
+          <button class="close-btn small" id="close-debug">✕</button>
+        </div>
+        <div id="debug-content" class="debug-content"></div>
+      </div>
+      <!-- BrowserView will be positioned here by Electron -->
+    </div>
+
+    <!-- Window Capture Modal (legacy) -->
+    <div id="capture-modal" class="modal hidden">
+      <div class="modal-content pixel-border">
+        <div class="modal-header">
+          <h2>🎯 Select Instagram Window</h2>
+          <button class="close-btn" id="close-capture">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- Permission prompt -->
+          <div id="permission-prompt" class="hidden" style="text-align: center; padding: 30px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">🔐</div>
+            <h3 style="font-family: 'Press Start 2P'; font-size: 14px; color: #ff6b9d; margin-bottom: 15px;">Screen Recording Permission Required</h3>
+            <p style="color: #a0a0b0; margin-bottom: 25px;">To capture your Instagram window, please grant screen recording permission.</p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+              <button class="pixel-btn" id="open-preferences">🔓 Open Settings</button>
+              <button class="pixel-btn secondary" id="restart-app">🔄 Restart App</button>
+            </div>
+            <p style="color: #6272a4; margin-top: 20px; font-size: 14px;">
+              1. Click "Open Settings" → Enable "Electron"<br>
+              2. Click "Restart App" to apply
+            </p>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #333;">
+              <p style="color: #6272a4; margin-bottom: 15px;">Or try the 3D world with demo data:</p>
+              <button class="pixel-btn" id="use-demo">🎮 Play Demo</button>
+            </div>
+          </div>
+          
+          <!-- Window list -->
+          <div id="window-section">
+            <p class="instruction">Select your browser window with Instagram open:</p>
+            <div id="window-list" class="window-grid">
+              <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Scanning windows...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="pixel-btn secondary" id="refresh-windows">
+            🔄 Refresh
+          </button>
+          <button class="pixel-btn" id="start-capture" disabled>
+            ▶ Start Capture
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game World -->
+    <div id="game-screen" class="screen">
+      <div id="game-container"></div>
+      
+      <!-- HUD -->
+      <div id="hud">
+        <div class="hud-top">
+          <div class="hud-panel player-info pixel-border">
+            <div class="avatar-frame">
+              <div class="avatar" id="player-avatar">👤</div>
+            </div>
+            <div class="player-stats">
+              <span class="player-name">TRAINER</span>
+              <div class="stat-bar">
+                <span class="stat-label">POSTS</span>
+                <div class="bar"><div class="bar-fill" id="posts-bar"></div></div>
+                <span class="stat-value" id="posts-count">0</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="hud-panel minimap pixel-border">
+            <canvas id="minimap-canvas" width="150" height="150"></canvas>
+          </div>
+        </div>
+        
+        <div class="hud-bottom">
+          <div class="controls-hint pixel-border">
+            <span>WASD - Move</span>
+            <span>MOUSE - Look</span>
+            <span>E - Interact</span>
+            <span>TAB - Menu</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Dialog Box -->
+      <div id="dialog-box" class="pixel-border hidden">
+        <div class="dialog-portrait" id="npc-portrait">💬</div>
+        <div class="dialog-content">
+          <span class="dialog-name" id="dialog-name">System</span>
+          <p class="dialog-text" id="dialog-text"></p>
+        </div>
+        <span class="dialog-continue">▼ Press SPACE</span>
+      </div>
+      
+      <!-- Interaction Menu -->
+      <div id="interaction-menu" class="pixel-border hidden">
+        <h3>📱 Instagram Hub</h3>
+        <div class="menu-grid">
+          <button class="menu-item" data-action="stories">
+            <span class="item-icon">📖</span>
+            <span class="item-label">Stories</span>
+          </button>
+          <button class="menu-item" data-action="posts">
+            <span class="item-icon">🖼️</span>
+            <span class="item-label">Posts</span>
+          </button>
+          <button class="menu-item" data-action="messages">
+            <span class="item-icon">💬</span>
+            <span class="item-label">Messages</span>
+          </button>
+          <button class="menu-item" data-action="explore">
+            <span class="item-icon">🔍</span>
+            <span class="item-label">Explore</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Content Viewer -->
+      <div id="content-viewer" class="hidden">
+        <div class="viewer-backdrop"></div>
+        <div class="viewer-content pixel-border">
+          <button class="close-btn" id="close-viewer">✕</button>
+          <div id="viewer-inner"></div>
+        </div>
+      </div>
+      
+      <!-- Pause Menu -->
+      <div id="pause-menu" class="hidden">
+        <div class="pause-backdrop"></div>
+        <div class="pause-content pixel-border">
+          <h2>⏸️ PAUSED</h2>
+          <div class="pause-options">
+            <button class="pixel-btn" id="resume-btn">▶ Resume</button>
+            <button class="pixel-btn" id="recapture-btn">📷 Recapture</button>
+            <button class="pixel-btn" id="exit-btn">🚪 Exit to Title</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="renderer.js"></script>
+  <script src="game.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
+

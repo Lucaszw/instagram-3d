@@ -1,0 +1,24 @@
+{
+  "name": "creative-instagram",
+  "version": "1.0.0",
+  "description": "CreativeInstagram - A Pokemon-style 3D visualizer for Instagram",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": ["instagram", "3d", "visualizer", "pokemon", "electron"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "screenshot-desktop": "^1.15.0",
+    "sharp": "^0.33.2",
+    "tesseract.js": "^5.0.4",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0"
+  }
+}
+
