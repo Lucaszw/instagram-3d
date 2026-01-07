@@ -19,6 +19,8 @@ class InstagramGame {
     this.isTyping = false;
     this.chatCache = {}; // Cache scraped chats
     this.activeChatBubble = null; // Current 3D chat bubble
+    this.compassTarget = null; // NPC being tracked by compass
+    this.compassTargetName = ''; // Name of tracked friend
     
     // Mock data for demo
     this.generateMockData();
@@ -111,6 +113,7 @@ class InstagramGame {
     this.renderer = new GameRenderer(container);
     this.state = 'playing';
     this.setupControls();
+    this.setupCompass();
     this.updateMinimap();
     
     // Populate with any pending data that was loaded before renderer existed
@@ -126,6 +129,7 @@ class InstagramGame {
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
       if (this.state !== 'playing') return;
+      if (this.isTyping) return; // Skip controls when typing in search
       
       switch (e.key.toLowerCase()) {
         case 'w': case 'arrowup':
@@ -161,6 +165,7 @@ class InstagramGame {
     });
 
     document.addEventListener('keyup', (e) => {
+      if (this.isTyping) return; // Skip when typing
       switch (e.key.toLowerCase()) {
         case 'w': case 'arrowup':
           this.renderer.setMovement('forward', false);
@@ -179,6 +184,110 @@ class InstagramGame {
 
     // Minimap update loop
     setInterval(() => this.updateMinimap(), 100);
+  }
+
+  setupCompass() {
+    const searchInput = document.getElementById('friend-search');
+    const compassContainer = document.getElementById('compass-container');
+    const compassArrow = document.getElementById('compass-arrow');
+    const compassDistance = document.getElementById('compass-distance');
+    const friendHint = document.getElementById('friend-hint');
+    
+    if (!searchInput) return;
+    
+    // Prevent game controls while typing
+    searchInput.addEventListener('focus', () => {
+      this.isTyping = true;
+    });
+    
+    searchInput.addEventListener('blur', () => {
+      this.isTyping = false;
+    });
+    
+    // Search for friend on input (case-insensitive partial match - like ILIKE)
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      
+      if (!query) {
+        compassContainer.classList.add('hidden');
+        friendHint.classList.add('hidden');
+        friendHint.textContent = '';
+        this.compassTarget = null;
+        this.compassTargetName = '';
+        searchInput.style.borderColor = '';
+        return;
+      }
+      
+      // Find matching NPC (case-insensitive partial match)
+      const match = this.renderer.npcs.find(npc => {
+        const npcName = npc.userData?.name?.toLowerCase() || '';
+        return npcName.includes(query);
+      });
+      
+      if (match) {
+        this.compassTarget = match;
+        this.compassTargetName = match.userData.name;
+        compassContainer.classList.remove('hidden');
+        searchInput.style.borderColor = '#ffd93d'; // Gold when found
+        
+        // Show the full handle as a hint
+        friendHint.textContent = `→ @${match.userData.name}`;
+        friendHint.style.color = '#ffd93d'; // Gold
+        friendHint.classList.remove('hidden');
+      } else {
+        this.compassTarget = null;
+        this.compassTargetName = '';
+        compassContainer.classList.add('hidden');
+        searchInput.style.borderColor = '#e06c75'; // Red when not found
+        friendHint.textContent = 'No match';
+        friendHint.style.color = '#e06c75';
+        friendHint.classList.remove('hidden');
+      }
+    });
+    
+    // Update compass direction every frame
+    this.compassUpdateLoop = setInterval(() => {
+      if (!this.compassTarget || !this.renderer?.player) return;
+      
+      const player = this.renderer.player.position;
+      const target = this.compassTarget.position;
+      
+      // Calculate direction from player to target
+      const dx = target.x - player.x;
+      const dz = target.z - player.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      
+      // Calculate angle to target in world space
+      // atan2(dx, -dz) gives angle where 0 = forward (negative Z in Three.js)
+      const angleToTarget = Math.atan2(dx, -dz);
+      
+      // Get camera's Y rotation (horizontal rotation)
+      // The camera looks down at the player, so we need the player's facing direction
+      // In this game, camera follows player, so we use camera's horizontal angle
+      const cameraDir = new THREE.Vector3();
+      this.renderer.camera.getWorldDirection(cameraDir);
+      // Project onto XZ plane and get angle
+      const cameraAngle = Math.atan2(cameraDir.x, -cameraDir.z);
+      
+      // Relative angle: how much to rotate from "forward on screen" to point at target
+      let relativeAngle = angleToTarget - cameraAngle;
+      
+      // Convert to degrees and adjust for arrow pointing right (add 90 offset, or use -90)
+      // Arrow ➤ points right, so 0 degrees should be right, not up
+      const degrees = -(relativeAngle * 180 / Math.PI) - 90;
+      
+      // Rotate the arrow
+      compassArrow.style.transform = `rotate(${degrees}deg)`;
+      
+      // Update distance display
+      if (distance < 5) {
+        compassDistance.textContent = 'HERE!';
+        compassDistance.style.color = '#98c379'; // Green when close
+      } else {
+        compassDistance.textContent = `${Math.round(distance)}m`;
+        compassDistance.style.color = '#ffd93d'; // Gold normally
+      }
+    }, 50);
   }
 
   interact() {
