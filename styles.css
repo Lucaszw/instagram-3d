@@ -1361,6 +1361,110 @@ h1 {
 }
 
 /* ========================================
+   Inventory / Build Menu
+   ======================================== */
+
+#inventory-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 15, 0.7);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+#inventory-menu.hidden {
+  display: none;
+}
+
+.inventory-content {
+  background: rgba(15, 15, 25, 0.98);
+  padding: 25px 30px;
+  min-width: 450px;
+  max-width: 500px;
+}
+
+.inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--primary);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.inventory-header h3 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 14px;
+  color: var(--primary);
+  margin: 0;
+}
+
+.inventory-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.inventory-item {
+  padding: 15px 10px;
+  background: var(--bg-dark);
+  border: 3px solid var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.inventory-item:hover {
+  border-color: var(--gold);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+}
+
+.inventory-item:active {
+  transform: translateY(0);
+}
+
+.item-preview {
+  font-size: 32px;
+}
+
+.item-name {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 8px;
+  color: var(--text-secondary);
+}
+
+.inventory-footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 2px solid var(--text-dim);
+  text-align: center;
+}
+
+#placed-count {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  color: var(--gold);
+}
+
+/* ========================================
    Scrollbar
    ======================================== */
 

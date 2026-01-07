@@ -177,6 +177,7 @@
             <span>WASD - Move</span>
             <span>MOUSE - Look</span>
             <span>E - Interact</span>
+            <span>I - Build</span>
             <span>TAB - Menu</span>
           </div>
         </div>
@@ -233,6 +234,46 @@
             <button class="pixel-btn" id="resume-btn">▶ Resume</button>
             <button class="pixel-btn" id="recapture-btn">📷 Recapture</button>
             <button class="pixel-btn" id="exit-btn">🚪 Exit to Title</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Inventory / Build Menu -->
+      <div id="inventory-menu" class="hidden">
+        <div class="inventory-content pixel-border">
+          <div class="inventory-header">
+            <h3>🏗️ Build Mode</h3>
+            <span class="inventory-hint">Click item to place in front of you</span>
+            <button class="close-btn" id="close-inventory">✕</button>
+          </div>
+          <div class="inventory-grid">
+            <button class="inventory-item" data-item="tree">
+              <span class="item-preview">🌲</span>
+              <span class="item-name">Tree</span>
+            </button>
+            <button class="inventory-item" data-item="building">
+              <span class="item-preview">🏢</span>
+              <span class="item-name">Building</span>
+            </button>
+            <button class="inventory-item" data-item="fountain">
+              <span class="item-preview">⛲</span>
+              <span class="item-name">Fountain</span>
+            </button>
+            <button class="inventory-item" data-item="bench">
+              <span class="item-preview">🪑</span>
+              <span class="item-name">Bench</span>
+            </button>
+            <button class="inventory-item" data-item="lamp">
+              <span class="item-preview">🏮</span>
+              <span class="item-name">Lamp</span>
+            </button>
+            <button class="inventory-item" data-item="flowers">
+              <span class="item-preview">🌸</span>
+              <span class="item-name">Flowers</span>
+            </button>
+          </div>
+          <div class="inventory-footer">
+            <span id="placed-count">0 items placed</span>
           </div>
         </div>
       </div>

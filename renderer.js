@@ -589,6 +589,149 @@ class GameRenderer {
     this.scene.add(benchGroup);
   }
 
+  createFountain(x, z) {
+    const fountainGroup = new THREE.Group();
+
+    // Base pool
+    const poolGeometry = new THREE.CylinderGeometry(3, 3.5, 0.8, 24);
+    const poolMaterial = new THREE.MeshStandardMaterial({ color: 0x4a5568 });
+    const pool = new THREE.Mesh(poolGeometry, poolMaterial);
+    pool.position.y = 0.4;
+    pool.castShadow = true;
+    fountainGroup.add(pool);
+
+    // Water surface
+    const waterGeometry = new THREE.CylinderGeometry(2.8, 2.8, 0.1, 24);
+    const waterMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x61dafb, 
+      transparent: true, 
+      opacity: 0.6 
+    });
+    const water = new THREE.Mesh(waterGeometry, waterMaterial);
+    water.position.y = 0.7;
+    fountainGroup.add(water);
+
+    // Center column
+    const columnGeometry = new THREE.CylinderGeometry(0.4, 0.5, 2, 12);
+    const columnMaterial = new THREE.MeshStandardMaterial({ color: 0x718096 });
+    const column = new THREE.Mesh(columnGeometry, columnMaterial);
+    column.position.y = 1.5;
+    column.castShadow = true;
+    fountainGroup.add(column);
+
+    // Top bowl
+    const bowlGeometry = new THREE.CylinderGeometry(1.2, 0.8, 0.4, 16);
+    const bowl = new THREE.Mesh(bowlGeometry, poolMaterial);
+    bowl.position.y = 2.7;
+    fountainGroup.add(bowl);
+
+    // Water spray particles (simulated with small spheres)
+    for (let i = 0; i < 5; i++) {
+      const dropGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+      const dropMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x61dafb, 
+        transparent: true, 
+        opacity: 0.7 
+      });
+      const drop = new THREE.Mesh(dropGeometry, dropMaterial);
+      const angle = (i / 5) * Math.PI * 2;
+      drop.position.set(
+        Math.cos(angle) * 0.5,
+        3 + Math.random() * 0.5,
+        Math.sin(angle) * 0.5
+      );
+      fountainGroup.add(drop);
+    }
+
+    fountainGroup.position.set(x, 0, z);
+    this.decorations.push(fountainGroup);
+    this.scene.add(fountainGroup);
+  }
+
+  createSmallBuilding(x, z) {
+    const buildingGroup = new THREE.Group();
+    
+    // Random building color
+    const colors = [0x9b59b6, 0x3498db, 0xe74c3c, 0xf39c12, 0x1abc9c];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    
+    // Main structure
+    const width = 4 + Math.random() * 2;
+    const height = 6 + Math.random() * 4;
+    const depth = 4 + Math.random() * 2;
+    
+    const mainGeometry = new THREE.BoxGeometry(width, height, depth);
+    const mainMaterial = new THREE.MeshStandardMaterial({ 
+      color: color,
+      roughness: 0.7,
+      metalness: 0.1
+    });
+    const main = new THREE.Mesh(mainGeometry, mainMaterial);
+    main.position.y = height / 2;
+    main.castShadow = true;
+    main.receiveShadow = true;
+    buildingGroup.add(main);
+
+    // Windows
+    const windowMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xffd93d, 
+      transparent: true, 
+      opacity: 0.8 
+    });
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 2; col++) {
+        const windowGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.1);
+        const window = new THREE.Mesh(windowGeometry, windowMaterial);
+        window.position.set(
+          (col - 0.5) * 1.5,
+          2 + row * 2,
+          depth / 2 + 0.05
+        );
+        buildingGroup.add(window);
+      }
+    }
+
+    // Roof
+    const roofGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, depth + 0.5);
+    const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.y = height + 0.25;
+    buildingGroup.add(roof);
+
+    buildingGroup.position.set(x, 0, z);
+    buildingGroup.rotation.y = Math.random() * Math.PI * 2;
+    this.decorations.push(buildingGroup);
+    this.scene.add(buildingGroup);
+  }
+
+  // Create a placed item by type
+  createPlacedItem(type, x, z) {
+    console.log(`Creating placed item: ${type} at (${x}, ${z})`);
+    
+    switch (type) {
+      case 'tree':
+        this.createTree(x, z);
+        break;
+      case 'building':
+        this.createSmallBuilding(x, z);
+        break;
+      case 'fountain':
+        this.createFountain(x, z);
+        break;
+      case 'bench':
+        this.createBench(x, z);
+        break;
+      case 'lamp':
+        this.createLampPost(x, z);
+        break;
+      case 'flowers':
+        this.createFlowerBed(x, z);
+        break;
+      default:
+        console.warn(`Unknown item type: ${type}`);
+    }
+  }
+
   createNPCs() {
     const npcConfigs = [
       { position: new THREE.Vector3(5, 0, 5), color: 0xff9ff3, name: 'Story Keeper' },

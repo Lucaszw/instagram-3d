@@ -21,6 +21,11 @@ class InstagramGame {
     this.activeChatBubble = null; // Current 3D chat bubble
     this.compassTarget = null; // NPC being tracked by compass
     this.compassTargetName = ''; // Name of tracked friend
+    this.inventoryOpen = false; // Inventory menu state
+    this.placedItems = {}; // Items placed by Instagram handle: { handle: [{type, x, z}, ...] }
+    
+    // Load placed items from storage
+    this.loadPlacedItems();
     
     // Mock data for demo
     this.generateMockData();
@@ -122,6 +127,9 @@ class InstagramGame {
       this.renderer.populateWithFriends(this.pendingFriendsData);
     }
     
+    // Restore any placed items from storage
+    this.restorePlacedItems();
+    
     this.showWelcomeDialog();
   }
 
@@ -158,8 +166,12 @@ class InstagramGame {
           e.preventDefault();
           this.toggleMenu();
           break;
+        case 'i':
+          this.toggleInventory();
+          break;
         case 'escape':
           this.togglePause();
+          if (this.inventoryOpen) this.toggleInventory();
           break;
       }
     });
@@ -921,6 +933,145 @@ class InstagramGame {
     } else {
       console.log('Silently loaded Instagram data for later use');
     }
+  }
+
+  // ========================================
+  // Inventory / Build System
+  // ========================================
+
+  toggleInventory() {
+    const menu = document.getElementById('inventory-menu');
+    if (!menu) return;
+    
+    this.inventoryOpen = !this.inventoryOpen;
+    
+    if (this.inventoryOpen) {
+      menu.classList.remove('hidden');
+      this.updatePlacedCount();
+      this.setupInventoryHandlers();
+    } else {
+      menu.classList.add('hidden');
+    }
+  }
+
+  setupInventoryHandlers() {
+    const items = document.querySelectorAll('.inventory-item');
+    const closeBtn = document.getElementById('close-inventory');
+    
+    // Remove old listeners by cloning
+    items.forEach(item => {
+      const newItem = item.cloneNode(true);
+      item.parentNode.replaceChild(newItem, item);
+    });
+    
+    // Add new listeners
+    document.querySelectorAll('.inventory-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const itemType = item.dataset.item;
+        this.placeItem(itemType);
+        this.toggleInventory();
+      });
+    });
+    
+    if (closeBtn) {
+      closeBtn.onclick = () => this.toggleInventory();
+    }
+  }
+
+  placeItem(itemType) {
+    if (!this.renderer || !this.renderer.player) return;
+    
+    const player = this.renderer.player;
+    const camera = this.renderer.camera;
+    
+    // Get direction player is facing (use camera direction projected onto XZ plane)
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    dir.normalize();
+    
+    // Place item 8 units in front of player
+    const distance = 8;
+    const x = player.position.x + dir.x * distance;
+    const z = player.position.z + dir.z * distance;
+    
+    // Create the item in the 3D world
+    this.renderer.createPlacedItem(itemType, x, z);
+    
+    // Get current Instagram handle (use closest NPC or default)
+    const handle = this.getCurrentHandle();
+    
+    // Store in placed items
+    if (!this.placedItems[handle]) {
+      this.placedItems[handle] = [];
+    }
+    this.placedItems[handle].push({ type: itemType, x, z });
+    
+    // Save to storage
+    this.savePlacedItems();
+    
+    // Show confirmation
+    this.queueDialog({
+      name: 'Build Mode',
+      icon: '🏗️',
+      text: `Placed a ${itemType} at (${Math.round(x)}, ${Math.round(z)})!`
+    });
+    this.showNextDialog();
+  }
+
+  getCurrentHandle() {
+    // Try to get the profile username, or use a default
+    if (this.instagramData.profile?.username) {
+      return this.instagramData.profile.username;
+    }
+    return 'default_world';
+  }
+
+  updatePlacedCount() {
+    const countEl = document.getElementById('placed-count');
+    if (!countEl) return;
+    
+    let total = 0;
+    Object.values(this.placedItems).forEach(items => {
+      total += items.length;
+    });
+    
+    countEl.textContent = `${total} items placed`;
+  }
+
+  loadPlacedItems() {
+    try {
+      const saved = localStorage.getItem('creativeinstagram_placed_items');
+      if (saved) {
+        this.placedItems = JSON.parse(saved);
+        console.log('Loaded placed items:', Object.keys(this.placedItems).length, 'handles');
+      }
+    } catch (e) {
+      console.error('Failed to load placed items:', e);
+      this.placedItems = {};
+    }
+  }
+
+  savePlacedItems() {
+    try {
+      localStorage.setItem('creativeinstagram_placed_items', JSON.stringify(this.placedItems));
+      console.log('Saved placed items');
+    } catch (e) {
+      console.error('Failed to save placed items:', e);
+    }
+  }
+
+  restorePlacedItems() {
+    // Restore all placed items to the 3D world
+    if (!this.renderer) return;
+    
+    Object.values(this.placedItems).forEach(items => {
+      items.forEach(item => {
+        this.renderer.createPlacedItem(item.type, item.x, item.z);
+      });
+    });
+    
+    console.log('Restored placed items to world');
   }
 }
 
