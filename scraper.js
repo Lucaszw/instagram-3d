@@ -1,5 +1,5 @@
 // ========================================
-// InstaPokéWorld - Instagram Scraper
+// CreativeInstagram - Instagram Scraper
 // OCR-based extraction from captured windows
 // ========================================
 

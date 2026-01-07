@@ -1,5 +1,5 @@
 // ========================================
-// InstaPokéWorld - Game Logic
+// CreativeInstagram - Game Logic
 // Handles game state, Instagram data, and interactions
 // ========================================
 
@@ -112,6 +112,13 @@ class InstagramGame {
     this.state = 'playing';
     this.setupControls();
     this.updateMinimap();
+    
+    // Populate with any pending data that was loaded before renderer existed
+    if (this.pendingFriendsData) {
+      console.log('Populating world with pre-loaded data');
+      this.renderer.populateWithFriends(this.pendingFriendsData);
+    }
+    
     this.showWelcomeDialog();
   }
 
@@ -236,9 +243,15 @@ class InstagramGame {
         this.chatCache[name] = chatData.messages.slice(-3);
         this.createBubble(npc, name, this.chatCache[name]);
       } else {
-        // Show default based on type
+        // Check if we have stored message data from the scrape
+        if (data && data.text && data.text.length > 5) {
+          this.createBubble(npc, name, [{ text: data.text, isMe: false }]);
+          return;
+        }
+        
+        // Show default based on type (story type just shows their name, no special message)
         const defaultMsg = {
-          'story': '📸 Posted a story',
+          'story': `@${name}`,
           'message': '💬 No recent messages',
           'suggestion': '✨ Suggested friend',
           'mutual': '🤝 Mutual friend',
@@ -491,7 +504,7 @@ class InstagramGame {
     this.queueDialog({
       name: 'System',
       icon: '🎮',
-      text: 'Welcome to InstaPokéWorld! A 3D Instagram experience awaits you.'
+      text: 'Welcome to CreativeInstagram! A 3D Instagram experience awaits you.'
     });
     this.queueDialog({
       name: 'System',
@@ -771,12 +784,15 @@ class InstagramGame {
     document.getElementById('posts-bar').style.width = `${(postsCount / maxPosts) * 100}%`;
   }
 
-  setInstagramData(data) {
+  setInstagramData(data, silent = false) {
     console.log('Setting Instagram data:', data);
     if (data.stories) this.instagramData.stories = data.stories;
     if (data.posts) this.instagramData.posts = data.posts;
     if (data.messages) this.instagramData.messages = data.messages;
     if (data.profile) this.instagramData.profile = data.profile;
+    
+    // Store pending data to populate when renderer is ready
+    this.pendingFriendsData = data;
     
     this.updateStats();
     
@@ -785,13 +801,17 @@ class InstagramGame {
       this.renderer.populateWithFriends(data);
     }
     
-    // Show notification
-    this.queueDialog({
-      name: 'System',
-      icon: '✨',
-      text: 'Instagram data has been captured and loaded into the world!'
-    });
-    this.showNextDialog();
+    // Show notification (unless silent load at startup)
+    if (!silent) {
+      this.queueDialog({
+        name: 'System',
+        icon: '✨',
+        text: 'Instagram data has been captured and loaded into the world!'
+      });
+      this.showNextDialog();
+    } else {
+      console.log('Silently loaded Instagram data for later use');
+    }
   }
 }
 

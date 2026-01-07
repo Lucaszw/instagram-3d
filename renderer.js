@@ -1,5 +1,5 @@
 // ========================================
-// InstaPokéWorld - 3D Renderer
+// CreativeInstagram - 3D Renderer
 // Pokemon-style 3D world using Three.js
 // ========================================
 

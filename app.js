@@ -1,5 +1,5 @@
 // ========================================
-// InstaPokéWorld - Application Controller
+// CreativeInstagram - Application Controller
 // Handles UI, window capture, and IPC communication
 // ========================================
 
@@ -16,7 +16,11 @@ class App {
 
   init() {
     this.setupEventListeners();
-    this.loadSavedData();
+    
+    // Load saved data with a small delay to ensure ipcRenderer is ready
+    setTimeout(() => {
+      this.loadSavedData();
+    }, 500);
     
     // Show title screen
     this.showScreen('title-screen');
@@ -485,7 +489,7 @@ class App {
     await this.delay(2000);
     
     if (this.scrapedData.usernames.size > 0) {
-      this.updateBrowserStatus('🎮 Launching InstaPokéWorld...');
+      this.updateBrowserStatus('🎮 Launching CreativeInstagram...');
       await this.delay(1000);
       await this.playWithScrapedData();
     }
@@ -771,7 +775,7 @@ class App {
         posts: data.posts?.length || 0,
         followers: 1000,
         following: data.stories?.length || 0,
-        bio: 'Exploring InstaPokéWorld!'
+        bio: 'Exploring CreativeInstagram!'
       }
     };
   }
@@ -1171,7 +1175,7 @@ class App {
         posts: 42,
         followers: 1337,
         following: 420,
-        bio: 'Exploring InstaPokéWorld! ✨'
+        bio: 'Exploring CreativeInstagram! ✨'
       },
       capturedScreenshot: imageData
     };
@@ -1198,36 +1202,44 @@ class App {
   async loadLatestDump() {
     try {
       const dumps = await ipcRenderer.invoke('list-dumps');
+      console.log('Found', dumps?.length || 0, 'dump files');
       
       if (dumps && dumps.length > 0) {
-        // Dumps are sorted by date (newest first)
-        const latestDump = dumps[0];
-        console.log('Auto-loading latest dump:', latestDump.name);
+        // Initialize scraped data
+        this.scrapedData = { 
+          stories: [], posts: [], messages: [], notifications: [], mutuals: [], suggestions: [], usernames: new Set() 
+        };
         
-        const data = await ipcRenderer.invoke('load-dump', latestDump.filepath);
-        
-        if (data && !data.error) {
-          // Initialize scraped data if needed
-          this.scrapedData = this.scrapedData || { 
-            stories: [], posts: [], messages: [], notifications: [], mutuals: [], suggestions: [], usernames: new Set() 
-          };
-          
-          // Merge the loaded data
-          this.mergeScrapedData(data);
-          
-          // Set the data in the game
-          this.game.setInstagramData({
-            stories: this.scrapedData.stories,
-            posts: this.scrapedData.posts,
-            messages: this.scrapedData.messages
-          });
-          
-          const stats = this.getScrapedStats();
-          console.log('Auto-loaded dump:', stats);
+        // Load ALL dumps and merge them
+        let loadedCount = 0;
+        for (const dump of dumps) {
+          try {
+            const data = await ipcRenderer.invoke('load-dump', dump.filepath);
+            if (data && !data.error) {
+              this.mergeScrapedData(data);
+              loadedCount++;
+            }
+          } catch (e) {
+            console.error('Error loading dump:', dump.filename, e.message);
+          }
         }
+        
+        console.log('Loaded', loadedCount, 'dumps');
+        
+        // Set the data in the game (silent = true for auto-load at startup)
+        this.game.setInstagramData({
+          stories: this.scrapedData.stories,
+          posts: this.scrapedData.posts,
+          messages: this.scrapedData.messages,
+          suggestions: this.scrapedData.suggestions,
+          mutuals: this.scrapedData.mutuals
+        }, true);
+        
+        const stats = this.getScrapedStats();
+        console.log('Auto-loaded all dumps:', stats);
       }
     } catch (error) {
-      console.error('Error auto-loading latest dump:', error);
+      console.error('Error auto-loading dumps:', error);
     }
   }
 

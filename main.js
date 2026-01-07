@@ -170,9 +170,21 @@ ipcMain.handle('open-instagram-dm', async (event, username) => {
 
 // Scrape user's chat messages - show browser for debugging
 ipcMain.handle('scrape-user-chat', async (event, username, options = {}) => {
+  // Create browser if it doesn't exist
   if (!instagramView) {
-    console.log('Chat scrape: Browser not open');
-    return { messages: [], error: 'Browser not open' };
+    console.log('Chat scrape: Creating hidden browser...');
+    const { BrowserView } = require('electron');
+    instagramView = new BrowserView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        partition: 'persist:instagram' // Use same session
+      }
+    });
+    // Load Instagram but don't show
+    await instagramView.webContents.loadURL('https://www.instagram.com/');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('Chat scrape: Hidden browser created');
   }
 
   try {
@@ -242,17 +254,17 @@ ipcMain.handle('scrape-user-chat', async (event, username, options = {}) => {
     
     if (!messageClicked.found) {
       console.log('Chat scrape: Could not find Message button');
-      // Keep browser visible briefly if debugging
+      // Keep browser visible longer if debugging
       if (options.showBrowser) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 4000));
         mainWindow.removeBrowserView(instagramView);
       }
       return { messages: [], error: 'Message button not found', debug: { username, buttons: messageClicked.buttons } };
     }
     
-    // Wait for conversation to load (reduced for speed)
+    // Wait for conversation to load - need more time for messages
     console.log('Chat scrape: Step 3 - Waiting for messages to load...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 3500));
     
     // Step 2: Scrape the conversation messages
     const chatData = await instagramView.webContents.executeJavaScript(`
@@ -260,73 +272,85 @@ ipcMain.handle('scrape-user-chat', async (event, username, options = {}) => {
         const result = {
           username: '${username}',
           messages: [],
-          debug: {
-            url: window.location.href,
-            foundElements: 0,
-            allTexts: []
-          }
+          debug: { url: window.location.href, foundTexts: [], html: '' }
         };
         
-        console.log('Scraping conversation for:', '${username}');
-        console.log('Current URL:', window.location.href);
+        console.log('Scraping chat for:', '${username}');
         
-        // Find all message rows - Instagram uses role="row" for messages
+        // Method 1: Find message rows with role="row"
         const messageRows = document.querySelectorAll('[role="row"]');
-        console.log('Found message rows:', messageRows.length);
+        const candidates = [];
+        const seenTexts = new Set();
         
-        const messages = [];
+        console.log('Found rows:', messageRows.length);
         
-        messageRows.forEach((row, rowIndex) => {
-          // Check if this row contains "You sent" to determine sender
+        messageRows.forEach((row, idx) => {
           const rowText = row.textContent || '';
+          
+          // Skip very short rows or date-only rows
+          if (rowText.length < 15) return;
+          
+          // Check if from me
           const isMe = rowText.includes('You sent') || rowText.includes('You reacted');
           
-          // Skip date headers and UI elements
-          if (rowText.includes('Today') || rowText.includes('Yesterday') || 
-              /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(rowText.trim()) ||
-              rowText.length < 5) {
-            return;
-          }
-          
-          // Find all text spans within this row
+          // Find all spans within this row that have substantial text
           const spans = row.querySelectorAll('span');
-          let messageText = '';
+          let bestText = '';
           
           spans.forEach(span => {
             const text = span.textContent?.trim();
-            // Skip UI labels and timestamps
-            if (text && text.length > 3 && 
-                !text.includes('You sent') && 
-                !text.includes('You reacted') &&
-                !text.match(/^\\d{1,2}[\\/:]\\d{1,2}/) &&
-                !text.match(/^\\d{1,2}[ap]m$/i) &&
-                text !== '${username}' &&
-                !text.includes('Collage') &&
-                !text.includes('Double tap')) {
-              // Take the longest meaningful text from this row
-              if (text.length > messageText.length) {
-                messageText = text;
+            if (!text) return;
+            
+            // Skip if it's a child of another span we already processed
+            const spanClasses = span.className || '';
+            
+            // Look for spans with line-clamp (message content) or x1lliihq class
+            const hasLineClamp = span.closest('[style*="line-clamp"]') || spanClasses.includes('x1lliihq');
+            
+            // Skip UI elements
+            if (/^(You sent|You reacted|Seen|Active|Online|Message|Enter|Today|Yesterday|Verified|Double tap)$/i.test(text)) return;
+            if (/^\\d{1,2}:\\d{2}\\s*(AM|PM)?$/i.test(text)) return;
+            if (/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|January|February|March|April|May|June|July|August|September|October|November|December)/i.test(text)) return;
+            if (/^Seen\\s+\\d+/i.test(text)) return;
+            if (/^\\d+[hmdw]\\s*(ago)?$/i.test(text)) return;
+            
+            // Skip pure usernames
+            if (/^@?[a-zA-Z0-9_.]+$/.test(text) && text.length < 25) return;
+            
+            // Prefer longer text that looks like actual content
+            if (text.length > bestText.length && text.length > 8) {
+              // Make sure it has some actual words/content
+              const wordCount = text.split(/\\s+/).length;
+              if (wordCount >= 2 || text.length > 20) {
+                bestText = text;
               }
             }
           });
           
-          if (messageText && messageText.length > 3) {
-            result.debug.allTexts.push(messageText.substring(0, 50));
-            
-            messages.push({
-              text: messageText.substring(0, 200),
+          if (bestText && !seenTexts.has(bestText)) {
+            seenTexts.add(bestText);
+            const rect = row.getBoundingClientRect();
+            candidates.push({
+              text: bestText.substring(0, 200),
               isMe: isMe,
-              rowIndex: rowIndex
+              top: rect.top
             });
-            result.debug.foundElements++;
+            result.debug.foundTexts.push(bestText.substring(0, 50));
           }
         });
         
-        // Take last 5 messages
-        result.messages = messages.slice(-5);
+        // Sort by position and take last 5
+        candidates.sort((a, b) => a.top - b.top);
+        result.messages = candidates.slice(-5);
         
-        console.log('Scraped messages:', result.messages.length);
-        console.log('All found texts:', result.debug.allTexts);
+        // Debug: capture some HTML if no messages found
+        if (result.messages.length === 0) {
+          const chatArea = document.querySelector('[role="grid"]') || document.body;
+          result.debug.html = chatArea.innerHTML.substring(0, 2000);
+        }
+        
+        console.log('Found messages:', result.messages.length);
+        console.log('Debug texts:', result.debug.foundTexts);
         
         return result;
       })();
@@ -531,34 +555,59 @@ ipcMain.handle('instagram-get-url', async () => {
 ipcMain.handle('list-dumps', async () => {
   const dumpDir = path.join(app.getPath('userData'), 'scrape-dumps');
   
+  // Also check old app location for backwards compatibility
+  const oldDumpDir = path.join(app.getPath('userData').replace('creative-instagram', 'instagram-3d-visualizer'), 'scrape-dumps');
+  
+  console.log('Checking dump directories:', dumpDir, oldDumpDir);
+  
   try {
+    // Create new dump dir if needed
     if (!fs.existsSync(dumpDir)) {
-      return [];
+      fs.mkdirSync(dumpDir, { recursive: true });
     }
     
-    const files = fs.readdirSync(dumpDir)
-      .filter(f => f.endsWith('.json'))
-      .map(f => {
-        const filepath = path.join(dumpDir, f);
-        const stats = fs.statSync(filepath);
-        const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
-        
-        return {
-          filename: f,
-          filepath,
-          date: stats.mtime,
-          size: stats.size,
-          pageType: content.pageType || 'unknown',
-          stories: content.stories?.length || 0,
-          posts: content.posts?.length || 0,
-          messages: content.messages?.length || 0,
-          notifications: content.notifications?.length || 0,
-          usernames: content.rawUsernames?.length || 0
-        };
-      })
+    // Collect files from both directories
+    const collectFiles = (dir) => {
+      if (!fs.existsSync(dir)) return [];
+      
+      return fs.readdirSync(dir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+          try {
+            const filepath = path.join(dir, f);
+            const stats = fs.statSync(filepath);
+            const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+            
+            return {
+              filename: f,
+              filepath,
+              date: stats.mtime,
+              size: stats.size,
+              pageType: content.pageType || 'unknown',
+              stories: content.stories?.length || 0,
+              posts: content.posts?.length || 0,
+              messages: content.messages?.length || 0,
+              notifications: content.notifications?.length || 0,
+              usernames: content.rawUsernames?.length || 0
+            };
+          } catch (e) {
+            console.error('Error reading dump file:', f, e.message);
+            return null;
+          }
+        })
+        .filter(f => f !== null);
+    };
+    
+    // Collect from both new and old locations
+    const newFiles = collectFiles(dumpDir);
+    const oldFiles = collectFiles(oldDumpDir);
+    
+    const allFiles = [...newFiles, ...oldFiles]
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     
-    return files;
+    console.log('Found dumps:', allFiles.length, 'files');
+    
+    return allFiles;
   } catch (error) {
     console.error('Error listing dumps:', error);
     return [];
@@ -1104,6 +1153,22 @@ ipcMain.handle('process-ocr', async (event, imageDataUrl) => {
 app.whenReady().then(async () => {
   await requestPermissions();
   createWindow();
+
+  // Create hidden Instagram browser at startup so it's ready for chat scraping
+  setTimeout(() => {
+    if (!instagramView) {
+      console.log('Creating hidden Instagram browser at startup...');
+      instagramView = new BrowserView({
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          partition: 'persist:instagram'
+        }
+      });
+      instagramView.webContents.loadURL('https://www.instagram.com/');
+      console.log('Hidden Instagram browser created (session preserved)');
+    }
+  }, 2000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
